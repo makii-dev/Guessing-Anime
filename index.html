@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Stops pinch-zoom so taps on phones never zoom the page -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Higher or Lower: Anime Popularity Edition</title>
+  <!-- Fonts: Montserrat (headlines) and Poppins (small text). CSS has fallbacks if they fail to load -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- Shared top bar (hidden during gameplay) -->
+    <header class="site-header" id="site-header">
+      <div class="brand">
+        <div class="logo-tile" aria-hidden="true"><span>↑</span><span>↓</span></div>
+        <div class="brand-text">
+          <strong>Higher <span class="or">or</span> Lower</strong>
+          <small>Anime popularity edition</small>
+        </div>
+      </div>
+      <!-- Shows the AniList connection: loading / live / error -->
+      <div class="api-pill" id="api-pill" data-state="loading">
+        <i class="dot"></i><span id="api-pill-text">Connecting</span>
+      </div>
+    </header>
+
+    <!-- PHASE 1: SETUP SCREEN -->
+    <section id="setup-screen" class="screen page">
+      <div class="page-inner">
+        <div class="setup-grid">
+
+          <div class="hero">
+            <p class="eyebrow-line">The pass-and-play showdown</p>
+            <h1 class="hero-title">Know your <span class="accent">anime?</span></h1>
+            <p class="lede">Two titles. One popularity score. Make the call before the clock runs out.</p>
+            <div class="stats">
+              <div class="stat"><span class="stat-num">10<i>s</i></span><span class="stat-label">per guess</span></div>
+              <div class="stat"><span class="stat-num">1<i>–</i>5</span><span class="stat-label">players</span></div>
+              <div class="stat"><span class="stat-num">∞</span><span class="stat-label">streak potential</span></div>
+            </div>
+          </div>
+
+          <div class="card menu-box">
+            <div class="card-top">
+              <span class="tag">01 / Players</span>
+              <span class="tag accent">Up to five</span>
+            </div>
+            <h2 class="card-title">Who's playing?</h2>
+            <p class="card-text">Add your crew. Each player keeps guessing until they miss.</p>
+
+            <!-- Red banner, only shown if the AniList fetch fails -->
+            <div id="error-banner" class="error-banner hidden" role="alert">Network Error: Could not load anime data. Please refresh.</div>
+
+            <label for="player-count" class="field-label">How many players?</label>
+            <div class="stepper">
+              <button type="button" id="minus-btn" class="step-btn" aria-label="Fewer players">−</button>
+              <input type="number" id="player-count" min="1" max="5" value="1" inputmode="numeric">
+              <button type="button" id="plus-btn" class="step-btn" aria-label="More players">+</button>
+            </div>
+
+            <!-- JavaScript adds and removes the name rows inside this box -->
+            <div id="name-fields"></div>
+
+            <div class="card-meta">
+              <span>Names are kept in this browser.</span>
+              <button type="button" id="clear-names-btn" class="link-btn">Clear Names</button>
+            </div>
+
+            <p id="load-status" class="load-status is-loading" aria-live="polite">Loading anime titles...</p>
+            <p id="setup-message" class="setup-message" role="alert"></p>
+
+            <button type="button" id="start-btn" class="primary-btn" disabled>
+              <span id="start-label">Loading anime...</span><span class="arrow">↗</span>
+            </button>
+          </div>
+
+        </div>
+        <footer class="page-footer">
+          <span>Made for anime fans</span>
+          <span>Powered by <b>AniList</b></span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PHASE 2: HANDOFF SCREEN (anti-peeking) -->
+    <section id="handoff-screen" class="screen page hidden">
+      <div class="page-inner handoff-inner">
+        <p class="eyebrow-line" id="handoff-count">Turn 1 of 1</p>
+        <h2 class="hero-title handoff-title" id="handoff-text">Pass the phone</h2>
+        <p class="lede">You get 10 seconds per guess. Everyone else, look away.</p>
+        <button type="button" id="start-turn-btn" class="primary-btn massive-btn">
+          <span>Tap to Start Turn</span><span class="arrow">↗</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- PHASE 3: GAMEPLAY SCREEN -->
+    <section id="game-screen" class="screen hidden">
+      <div id="timer-bar"></div>
+
+      <!-- Top HUD: player + points on the left, streak + seconds on the right -->
+      <div class="hud">
+        <div class="hud-left">
+          <div class="tile tile-name" id="hud-name"></div>
+          <div class="tile tile-points"><b id="hud-score">0</b><span>Points</span><i class="plus-one" id="plus-one" aria-hidden="true">+1</i></div>
+        </div>
+        <div class="hud-right">
+          <div class="tile tile-small tile-streak" id="hud-streak-tile" data-heat="cold" title="Current streak"><b id="hud-streak">0</b></div>
+          <div class="tile tile-small tile-timer" id="hud-timer-tile" title="Seconds left"><b id="hud-timer">10</b></div>
+        </div>
+      </div>
+
+      <div class="board" id="board">
+        <!-- Anime A: popularity always visible -->
+        <div class="panel panel-a" id="panel-a">
+          <div class="panel-content">
+            <div class="info">
+              <p class="eyebrow" id="eyebrow-a"></p>
+              <h2 class="title" id="title-a"></h2>
+              <p class="pop" id="pop-a"></p>
+              <p class="status"></p>
+            </div>
+            <div class="button-slot"></div>
+          </div>
+        </div>
+
+        <!-- Anime C: the next anime, waits invisibly behind B -->
+        <div class="panel panel-c" id="panel-c" aria-hidden="true">
+          <div class="panel-content">
+            <div class="info">
+              <p class="eyebrow" id="eyebrow-c"></p>
+              <h2 class="title" id="title-c"></h2>
+              <p class="pop" id="pop-c"></p>
+              <p class="status"></p>
+            </div>
+            <div class="button-slot">
+              <div class="guess-btn lower"><span class="g-arrow">↓</span><span class="g-text"><b>Lower</b><small>Less popular</small></span></div>
+              <div class="guess-btn higher"><span class="g-arrow">↑</span><span class="g-text"><b>Higher</b><small>More popular</small></span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anime B: popularity hidden until the player guesses -->
+        <div class="panel panel-b" id="panel-b">
+          <div class="panel-content">
+            <div class="info">
+              <p class="eyebrow" id="eyebrow-b"></p>
+              <h2 class="title" id="title-b"></h2>
+              <p class="pop" id="pop-b"></p>
+              <p class="status" id="status-b" aria-live="polite"></p>
+            </div>
+            <div class="button-slot">
+              <button type="button" class="guess-btn lower" id="lower-btn"><span class="g-arrow">↓</span><span class="g-text"><b>Lower</b><small>Less popular</small></span></button>
+              <button type="button" class="guess-btn higher" id="higher-btn"><span class="g-arrow">↑</span><span class="g-text"><b>Higher</b><small>More popular</small></span></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Circle sitting on the dividing line -->
+        <div class="vs-badge" id="vs-badge">VS</div>
+      </div>
+
+      <!-- Green / red screen flash after a guess -->
+      <div class="flash" id="flash-overlay"></div>
+    </section>
+
+    <!-- PHASE 4: SCOREBOARD SCREEN -->
+    <section id="scoreboard-screen" class="screen page hidden">
+      <div class="confetti-layer" id="confetti-layer" aria-hidden="true"></div>
+      <div class="page-inner">
+        <p class="eyebrow-line">The final ranking</p>
+        <h1 class="hero-title">That's a <span class="accent">wrap.</span></h1>
+        <p class="lede" id="winner-line"></p>
+
+        <div class="card score-card">
+          <div class="card-top">
+            <div>
+              <span class="tag">Session complete</span>
+              <h2 class="card-title">Final scores</h2>
+            </div>
+            <span class="no-tile" aria-hidden="true">№</span>
+          </div>
+          <ol id="score-list" class="score-list"></ol>
+          <button type="button" id="play-again-btn" class="primary-btn">
+            <span>Play another round</span><span class="arrow">↗</span>
+          </button>
+          <p class="card-foot">Same crew, fresh titles, clean slate.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
